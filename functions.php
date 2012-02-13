@@ -1,14 +1,14 @@
 <?php
 
-//@todo only for development
-define(‘WP_DEBUG’, true);
+//define(‘WP_DEBUG’, true);
 
-/** Tell WordPress to run twentyten_setup() when the 'after_setup_theme' hook is run. */
+// important include to avoid clutter
+include_once('helpers/commons.php');
+
 add_action( 'after_setup_theme', 'theme_setup' );
 
 if ( ! function_exists( 'theme_setup' ) ):
     function theme_setup() {
-
         // This theme styles the visual editor with editor-style.css to match the theme style.
         add_editor_style();
 
@@ -19,7 +19,6 @@ if ( ! function_exists( 'theme_setup' ) ):
         add_theme_support( 'automatic-feed-links' );
 
         // Make theme available for translation
-        // Translations can be filed in the /languages/ directory
         load_theme_textdomain( 'twentyten', TEMPLATEPATH . '/languages' );
 
         $locale = get_locale();
@@ -33,88 +32,83 @@ if ( ! function_exists( 'theme_setup' ) ):
             'primary' => __( 'Primary Navigation', 'twentyten' ),
         ) );
 
+        // images sizes
+        set_post_thumbnail_size( 140, 90, true );
 
-        set_post_thumbnail_size( 220, 160, true );
-
-        add_image_size('icon-size', 45, 40, false);
-        add_image_size('banner-size', 940, 350, false);
+        add_image_size('icon-size', 45, 40, true);
+        add_image_size('social-size', 40, 40, false);
+        add_image_size('partner-size', 120, 120, false);
+        add_image_size('banner-size', 950, 348, true);
+        add_image_size('content-size', 830, 350, true);
     }
 endif;
+
+/**
+ * adds the javascript/jquery scripts to the website in the wordpress way
+ */
+function enqueue_scripts_method() {
+    //wp_enqueue_script("jquery");
+    wp_register_script('jquery_new',
+        get_templat9e_directory_uri() . '/js/jquery.js',
+        '1.0' );
+    wp_enqueue_script('jquery_new');
+
+    wp_register_script('helper_scripts',
+        get_template_directory_uri() . '/js/helpers.js',
+        '1.0' );
+    wp_enqueue_script('helper_scripts');
+
+    wp_register_script('active_scripts',
+        get_template_directory_uri() . '/js/scripts.js',
+        '1.0', 1 );
+    wp_enqueue_script('active_scripts');
+}
+add_action('wp_enqueue_scripts', 'enqueue_scripts_method');
 
 ///
 // set the default excerpt length
 //
 function excerpt_length( $length ) {
-//    return 40;
+    return 40;
 }
 add_filter( 'excerpt_length', 'excerpt_lenght' );
 
-// important include to avoid clutter
-// include_once('helpers/commons.php');
 
-/* custom post types */
-
-/**
- * custom post type setup example
- * build arrays using this example, create another meta file in the meta folder
- * following the example and your mind, and let the rest being handled by the meta
- * builder and meta save functions
- */
-
-/**
- * @TODO check this as EXAMPLE
- * builds an array for the book custom post type
- */
-add_action('init', 'post_type_books');
-function post_type_books()
+///
+// custom post type for SOCIAL MEDIA LINKS
+///
+add_action('init', 'post_type_smc_socialmedia');
+function post_type_smc_socialmedia()
 {
     $labels = array(
-        'name' => _x('Book post', 'post type general name'),
-        'singular_name' => _x('Book', 'post type singular name'),
-        'add_new' => _x('Add new', 'add_book'),
-        'add_new_item' => __('Add new book')
+        'name' => _x('Social Media', 'post type general name'),
+        'singular_name' => _x('Profil', 'post type singular name'),
+        'add_new' => _x('Adaugă nou', 'adauga_socialmedia'),
+        'add_new_item' => __('Adaugă profil social media')
     );
+
     $args = array(
         'labels' => $labels,
-        'public' => true,
-        'publicly_queryable' => true,
+        'public' => false,
+        'publicly_queryable' => false,
         'show_ui' => true,
         'query_var' => true,
         'rewrite' => true,
         'capability_type' => 'post',
         'hierarchical' => true,
         'menu_position' => null,
-        //	'taxonomies' => array('book_category'),
-        'supports' => array('title','editor','excerpt','thumbnail'));
-    register_post_type('book',$args);
-}
-include_once('meta/meta_books.php');
+        'supports' => array('title','thumbnail'));
 
-
-/**
- * builds the genre taxonomy for the books and author custom post types
- */
-add_action('init','build_taxonomies');
-function build_taxonomies() {
-    $labels = array(
-        'name' => _x('Book genre','taxonomy general name'),
-        'singular_name' => _x('Genre','taxonomy singular name'),
-        'search_items' => __('Search after genre'),
-        'all_items' => __('All genres'),
-        'parent_item' => __('Genre parent'),
-        'parent_item_colon' => __('Genre parent'),
-        'edit_item' => __('Edit genre'),
-        'update_item' => __('Update genre'),
-        'add_new_item' => __('Add genre'),
-        'new_item_name' => __('New name for genre'),
-    );
-    register_taxonomy('gen',array('book'),array('hierarchical' => true,'labels' => $labels));
+    register_post_type('socialmedia',$args);
 }
+include_once('meta/meta_social.php');
 
 /***
  * used by custom post types build with the supplied model to construct the meta fields and box, based on the fields
  * described in the array supplied
+ *
  * it includes elements ready for html5
+ *
  * @param $post
  * @param $meta_box the meta_box array used to build the meta attached for a custom post type
  */
@@ -131,9 +125,11 @@ function default_meta_show_box($post,$meta_box) {
         // get current post meta data
         $meta = get_post_meta($post->ID, $field['id'], true);
 
-        echo '<tr>',
-            '<th style="width:20%"><label for="', $field['id'], '">', $field['name'], '</label></th>',
-            '<td>';
+        if(!$field['hide']){
+            echo '<tr>',
+                '<th style="width:20%"><label for="', $field['id'], '">', $field['name'], '</label></th>',
+                '<td>';
+        }
         switch ($field['type']) {
 
         case 'hidden':
@@ -146,19 +142,6 @@ function default_meta_show_box($post,$meta_box) {
             echo '<input type="',$field['type'], '" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" size="30" style="width:97%" />',
                 '<br />', $field['desc'];
             break;
-
-       /*
-        * refactored above, not removed for testing
-        case 'date':
-            echo '<input type="date" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" size="30" style="width:97%" />',
-                '<br />', $field['desc'];
-            break;
-
-        case 'time':
-            echo '<input type="time" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" size="30" style="width:97%" />',
-                '<br />', $field['desc'];
-            break;
-       */
 
         case 'range':
             echo '<input type="range" name="', $field['id'], '" id="', $field['id'], '" value="', $meta ? $meta : $field['std'], '" size="30" style="width:97%" min="0" max="10"/>',
@@ -176,7 +159,7 @@ function default_meta_show_box($post,$meta_box) {
             echo '<input type="button" name="', $field['id'], '" id="', $field['id'], '"value="', $meta ? $meta : $field['std'], '" />';
             break;
         }
-        echo 	'<td>',
+        echo  '<td>',
             '</tr>';
     }
 
@@ -230,3 +213,44 @@ function save_data($post_id) {
         }
     }
 }
+
+add_action('save_post', 'save_data');
+
+//cleanup
+
+function remove_dashboard_widgets(){
+  global$wp_meta_boxes;
+  unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_plugins']);
+  unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_recent_comments']);
+  unset($wp_meta_boxes['dashboard']['side']['core']['dashboard_primary']);
+  unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_incoming_links']);
+  unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_right_now']);
+  unset($wp_meta_boxes['dashboard']['side']['core']['dashboard_secondary']);
+}
+
+add_action('wp_dashboard_setup', 'remove_dashboard_widgets');
+
+function remove_menu_items() {
+  global $menu;
+  $restricted = array(__('Links'), __('Comments'), __('Settings'),
+    __('Plugins'), __('Tools'), __('Users'));
+  end ($menu);
+  while (prev($menu)){
+      $value = explode(' ',$menu[key($menu)][0]);
+      if(in_array($value[0] != NULL?$value[0]:"" , $restricted)){
+                unset($menu[key($menu)]);}
+      }
+  }
+
+add_action('admin_menu', 'remove_menu_items');
+
+function remove_submenus() {
+  global $submenu;
+  unset($submenu['index.php'][10]); // Removes 'Updates'.
+  unset($submenu['themes.php'][5]); // Removes 'Themes'.
+  unset($submenu['options-general.php'][15]); // Removes 'Writing'.
+  unset($submenu['options-general.php'][25]); // Removes 'Discussion'.
+  unset($submenu['edit.php'][16]); // Removes 'Tags'.
+}
+
+add_action('admin_menu', 'remove_submenus');
