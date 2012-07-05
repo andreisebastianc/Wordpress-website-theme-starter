@@ -4,24 +4,11 @@ define('PRODUCTION',false);
 define('WITH_ICS',true);
 define('DEBUG',false);
 
-// @TODO don't forget to update path of calendar files generated
-define('CALENDARPATH','wp-content/themes/theme/calendar/');
-
-if (DEBUG) {
-	$wpdb->show_errors();
-	define(‘WP_DEBUG’, true);
-	error_reporting(E_ALL);
-	ini_set('display_errors', '1');
-} else {
-	define(‘WP_DEBUG’, false);
-	error_reporting(E_ALL);
-	ini_set('display_errors', '0');
-}
-
-//include_once('helpers/commons.php');
-//include_once('helpers/ajax-handling.php');
-//include_once('helpers/ics-generator.php');
-//include_once('helpers/connectionsManager.php');
+include_once('helpers/config.php');
+include_once('helpers/commons.php');
+include_once('helpers/ajax-handling.php');
+include_once('helpers/ics-generator.php');
+include_once('helpers/connectionsManager.php');
 
 add_action( 'after_setup_theme', 'theme_setup' );
 
@@ -36,14 +23,15 @@ if ( ! function_exists( 'theme_setup' ) ):
 		// Add default posts and comments RSS feed links to head
 		add_theme_support( 'automatic-feed-links' );
 
+		// use when needed
 		// Make theme available for translation
-		load_theme_textdomain( 'twentyten', TEMPLATEPATH . '/languages' );
-
+		// load_theme_textdomain( 'twentyten', TEMPLATEPATH . '/languages' );
+		/*
 		$locale = get_locale();
-		// i don't know how to use this yet
 		$locale_file = TEMPLATEPATH . "/languages/$locale.php";
 		if ( is_readable( $locale_file ) )
 			require_once( $locale_file );
+		 */
 
 		// This theme uses wp_nav_menu() in one location.
 		register_nav_menus( array(
@@ -61,20 +49,24 @@ if ( ! function_exists( 'theme_setup' ) ):
 		// create connection between two post types
 		// example:
 		// createConnection('event','partners');
+		// in this case, all the partner post type titles get displayed in a list
+		// of selectable checkboxes in the meta field of the events
 	}
 endif;
 
 // rss feeds
 function new_feed_request($qv) {
 	if ( isset($qv['feed']) && !isset($qv['post_type'])){
-		$qv['post_type'] = array('event','portfolio');
+		// don't forget to set appropriate post types
+		$qv['post_type'] = array('post_type_1','post_type_2');
 	}
 	return $qv;
 }
-// uncomment for rss
+// uncomment for rss and set appropriate post types
 // add_filter('request', 'new_feed_request');
 
 // Custom WordPress Login Logo
+// must add login form style in given css file
 function login_css() {
 	wp_enqueue_style( 'login_css', get_template_directory_uri() . '/css/login.css' );
 }
@@ -107,12 +99,13 @@ function enqueue_scripts_method() {
 function excerpt_length( $length ) {
 	return 200;
 }
-add_filter( 'excerpt_length', 'excerpt_lenght' );
+//add_filter( 'excerpt_length', 'excerpt_lenght' );
 
 // CUSTOM POST TYPES SECTION
 
 /**
- *
+ * setup custom post type
+ * use this as example
  */
 add_action('init', 'post_type_portfolio');
 function post_type_portfolio(){
@@ -151,6 +144,8 @@ function post_type_portfolio(){
 include_once('meta/meta_actions.php');
 
 /***
+ * @TODO refactor -> function is becoming to big
+ *
  * used by custom post types build with the supplied model to construct the meta fields and box, based on the fields
  * described in the array supplied
  *
@@ -164,15 +159,10 @@ function default_meta_show_box($post,$meta_box) {
 	echo '<input type="hidden" name="meta_box_nonce" value="', wp_create_nonce(basename(__FILE__)), '" />';
 
 	echo '<table class="form-table">';
-	///
-	//@todo research strange bug - basically i wanted to send the fields of each metabox but right now it constructs a
-	//different array at the callback args construction
-	//
+
 	foreach ($meta_box['args'] as $field) {
-		if ($field['type'] === 'connection') {
-			// get connections here from table
-		} else {
-			// get current post meta data
+
+		if ($field['type'] != 'connection') {
 			$meta = get_post_meta($post->ID, $field['id'], true);
 		}
 
@@ -288,42 +278,3 @@ function save_data($post_id) {
 	}
 }
 add_action('save_post', 'save_data');
-
-// Clean interface for users
-
-function remove_dashboard_widgets(){
-	global$wp_meta_boxes;
-	unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_plugins']);
-	unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_recent_comments']);
-	unset($wp_meta_boxes['dashboard']['side']['core']['dashboard_primary']);
-	unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_incoming_links']);
-	unset($wp_meta_boxes['dashboard']['normal']['core']['dashboard_right_now']);
-	unset($wp_meta_boxes['dashboard']['side']['core']['dashboard_secondary']);
-}
-
-function remove_menu_items() {
-	global $menu;
-	$restricted = array(__('Links'), __('Comments'), __('Settings'),
-		__('Plugins'), __('Tools'), __('Users'));
-	end ($menu);
-	while (prev($menu)){
-		$value = explode(' ',$menu[key($menu)][0]);
-		if(in_array($value[0] != NULL?$value[0]:"" , $restricted)){
-			unset($menu[key($menu)]);}
-	}
-}
-
-function remove_submenus() {
-	global $submenu;
-	unset($submenu['index.php'][10]); // Removes 'Updates'.
-	unset($submenu['themes.php'][5]); // Removes 'Themes'.
-	unset($submenu['options-general.php'][15]); // Removes 'Writing'.
-	unset($submenu['options-general.php'][25]); // Removes 'Discussion'.
-	unset($submenu['edit.php'][16]); // Removes 'Tags'.
-}
-
-if(PRODUCTION){
-	add_action('wp_dashboard_setup', 'remove_dashboard_widgets');
-	add_action('admin_menu', 'remove_menu_items');
-	add_action('admin_menu', 'remove_submenus');
-}

@@ -1,6 +1,7 @@
 <?php
 // @TODO1 Make class
 // @TODO2 maybe make it a singleton
+// @TODO3 detail functionality
 
 
 /**
